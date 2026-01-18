@@ -1,5 +1,8 @@
 use bevy::{
-    color::palettes::css::DARK_GREY, input::keyboard::Key, math::VectorSpace, prelude::*,
+    color::palettes::css::{DARK_GRAY, GREEN, RED},
+    input::keyboard::Key,
+    math::VectorSpace,
+    prelude::*,
     window::WindowResolution,
 };
 use bevy_rapier2d::prelude::*;
@@ -42,7 +45,7 @@ fn main() {
             spawn_ball,
         ),
     );
-    app.add_systems(Update, (move_paddle, detect_reset));
+    app.add_systems(Update, (move_paddle, detect_reset, ball_hit));
     app.add_systems(PostUpdate, (reset_ball, score));
     app.run();
 }
@@ -64,6 +67,13 @@ impl Player {
         match self {
             Player::Player1 => Velocity::linear(Vec2::new(100.0, 0.0)),
             Player::Player2 => Velocity::linear(Vec2::new(-100.0, 0.0)),
+        }
+    }
+
+    fn get_colour(&self) -> Color {
+        match self {
+            Player::Player1 => RED.into(),
+            Player::Player2 => GREEN.into(),
         }
     }
 }
@@ -123,16 +133,18 @@ fn spawn_players(mut commands: Commands) {
                 0.0,
             )),
             sprite: Sprite {
-                color: Color::WHITE,
+                color: Player::Player1.get_colour(),
                 custom_size: Some(Vec2::new(10.0, 150.0)),
                 ..Default::default()
             },
+
             ..Default::default()
         },
         Paddle {
             move_up: KeyCode::KeyW,
             move_down: KeyCode::KeyS,
         },
+        Player::Player1,
         RigidBody::KinematicPositionBased,
         Collider::cuboid(5.0, 75.0),
     ));
@@ -145,7 +157,7 @@ fn spawn_players(mut commands: Commands) {
                 0.0,
             )),
             sprite: Sprite {
-                color: Color::WHITE,
+                color: Player::Player2.get_colour(),
                 custom_size: Some(Vec2::new(10.0, 150.0)),
                 ..Default::default()
             },
@@ -155,6 +167,7 @@ fn spawn_players(mut commands: Commands) {
             move_up: KeyCode::ArrowUp,
             move_down: KeyCode::ArrowDown,
         },
+        Player::Player2,
         RigidBody::KinematicPositionBased,
         Collider::cuboid(5.0, 75.0),
     ));
@@ -205,10 +218,24 @@ fn spawn_ball(mut commands: Commands, asset_server: Res<AssetServer>) {
         CollidingEntities::default(),
         Velocity::linear(Vec2::new(100.0, 0.0)),
         Restitution {
-            coefficient: 1.0,
+            coefficient: 1.2,
             combine_rule: CoefficientCombineRule::Max,
         },
     ));
+}
+
+fn ball_hit(
+    paddles: Query<&Player, With<Paddle>>,
+    mut balls: Query<(&CollidingEntities, &mut Sprite), With<Ball>>,
+) {
+    for (hits, mut sprite) in &mut balls {
+        for hit in hits.iter() {
+            if let Ok(player) = paddles.get(hit) {
+                sprite.color = player.get_colour();
+                return;
+            }
+        }
+    }
 }
 
 fn detect_reset(
@@ -270,7 +297,7 @@ fn spawn_score(mut commands: Commands) {
                 height: Val::Percent(20.0),
                 ..Default::default()
             },
-            background_color: BackgroundColor(DARK_GREY.into()),
+            background_color: DARK_GRAY.into(),
             ..Default::default()
         })
         .with_children(|p| {
