@@ -1,9 +1,10 @@
 use bevy::{
-    color::palettes::css::LIGHT_GRAY, input::keyboard::Key, math::VectorSpace, prelude::*,
+    color::palettes::css::DARK_GREY, input::keyboard::Key, math::VectorSpace, prelude::*,
     window::WindowResolution,
 };
 use bevy_rapier2d::prelude::*;
 use rand::Rng;
+use std::collections::HashMap;
 
 const WINDOW_WIDTH: f32 = 1280.0;
 const WINDOW_HEIGHT: f32 = 720.0;
@@ -21,6 +22,7 @@ fn main() {
         ..Default::default()
     }));
     app.add_plugins(RapierPhysicsPlugin::<NoUserData>::default());
+    app.init_resource::<Score>();
     app.insert_resource(RapierConfiguration {
         gravity: Vec2::ZERO,
         ..RapierConfiguration::new(1.0)
@@ -41,7 +43,7 @@ fn main() {
         ),
     );
     app.add_systems(Update, (move_paddle, detect_reset));
-    app.add_systems(PostUpdate, reset_ball);
+    app.add_systems(PostUpdate, (reset_ball, score));
     app.run();
 }
 
@@ -51,7 +53,7 @@ struct Paddle {
     move_down: KeyCode,
 }
 
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone, Copy, PartialEq, Eq, Hash)]
 enum Player {
     Player1,
     Player2,
@@ -226,6 +228,7 @@ fn detect_reset(
         for hit in ball.iter() {
             if let Ok(player) = goles.get(hit) {
                 game_events.send(GameEvents::ResetBall(*player));
+                game_events.send(GameEvents::GainPoint(*player));
             }
         }
     }
@@ -234,6 +237,7 @@ fn detect_reset(
 #[derive(Event)]
 enum GameEvents {
     ResetBall(Player),
+    GainPoint(Player),
 }
 
 fn reset_ball(
@@ -260,11 +264,13 @@ fn spawn_score(mut commands: Commands) {
                 position_type: PositionType::Absolute,
                 margin: UiRect::horizontal(Val::Auto),
                 top: Val::ZERO,
+                align_content: AlignContent::Stretch,
+                justify_content: JustifyContent::SpaceBetween,
                 width: Val::Percent(30.0),
                 height: Val::Percent(20.0),
                 ..Default::default()
             },
-            background_color: BackgroundColor(LIGHT_GRAY.into()),
+            background_color: BackgroundColor(DARK_GREY.into()),
             ..Default::default()
         })
         .with_children(|p| {
@@ -318,4 +324,30 @@ fn spawn_score(mut commands: Commands) {
                 Player::Player2,
             ));
         });
+}
+
+#[derive(Default, Resource)]
+struct Score(HashMap<Player, i32>);
+
+fn score(
+    mut events: EventReader<GameEvents>,
+    mut score_text: Query<(&mut Text, &Player)>,
+    mut score: ResMut<Score>,
+) {
+    for event in events.read() {
+        match event {
+            GameEvents::GainPoint(player) => {
+                *score.0.entry(*player).or_default() += 1;
+                let score = score.0.get(player).cloned().unwrap_or(0);
+                for (mut text, owner) in &mut score_text {
+                    if owner != player {
+                        continue;
+                    }
+                    text.sections[0].value = score.to_string();
+                    break;
+                }
+            }
+            GameEvents::ResetBall(_) => {}
+        }
+    }
 }
