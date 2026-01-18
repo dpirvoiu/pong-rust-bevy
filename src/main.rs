@@ -1,4 +1,7 @@
-use bevy::{input::keyboard::Key, math::VectorSpace, prelude::*, window::WindowResolution};
+use bevy::{
+    color::palettes::css::LIGHT_GRAY, input::keyboard::Key, math::VectorSpace, prelude::*,
+    window::WindowResolution,
+};
 use bevy_rapier2d::prelude::*;
 use rand::Rng;
 
@@ -29,7 +32,13 @@ fn main() {
 
     app.add_systems(
         Startup,
-        (spawn_camera, spawn_players, spawn_border, spawn_ball),
+        (
+            spawn_score,
+            spawn_camera,
+            spawn_players,
+            spawn_border,
+            spawn_ball,
+        ),
     );
     app.add_systems(Update, (move_paddle, detect_reset));
     app.add_systems(PostUpdate, reset_ball);
@@ -242,4 +251,71 @@ fn reset_ball(
             _ => {}
         }
     }
+}
+
+fn spawn_score(mut commands: Commands) {
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                margin: UiRect::horizontal(Val::Auto),
+                top: Val::ZERO,
+                width: Val::Percent(30.0),
+                height: Val::Percent(20.0),
+                ..Default::default()
+            },
+            background_color: BackgroundColor(LIGHT_GRAY.into()),
+            ..Default::default()
+        })
+        .with_children(|p| {
+            p.spawn((
+                TextBundle {
+                    text: Text {
+                        sections: vec![TextSection {
+                            value: "0".to_string(),
+                            style: TextStyle {
+                                font_size: 100.,
+                                ..Default::default()
+                            },
+                        }],
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                }
+                .with_text_justify(JustifyText::Center),
+                Player::Player1,
+            ));
+
+            p.spawn(TextBundle {
+                text: Text {
+                    sections: vec![TextSection {
+                        value: "|".to_string(),
+                        style: TextStyle {
+                            font_size: 100.,
+                            ..Default::default()
+                        },
+                    }],
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
+
+            p.spawn((
+                TextBundle {
+                    text: Text {
+                        sections: vec![TextSection {
+                            value: "0".to_string(),
+                            style: TextStyle {
+                                font_size: 100.,
+                                ..Default::default()
+                            },
+                        }],
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                }
+                .with_text_justify(JustifyText::Center),
+                Player::Player2,
+            ));
+        });
 }
